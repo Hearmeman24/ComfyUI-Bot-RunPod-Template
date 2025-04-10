@@ -7,15 +7,6 @@ export LD_PRELOAD="${TCMALLOC}"
 # Set the network volume path
 NETWORK_VOLUME="/workspace"
 
-# This is in case there's any special installs or overrides that needs to occur when starting the machine before starting ComfyUI
-if [ -f "/workspace/additional_params.sh" ]; then
-    chmod +x /workspace/additional_params.sh
-    echo "Executing additional_params.sh..."
-    /workspace/additional_params.sh
-else
-    echo "additional_params.sh not found in /workspace. Skipping..."
-fi
-
 # Check if NETWORK_VOLUME exists; if not, use root directory instead
 if [ ! -d "$NETWORK_VOLUME" ]; then
     echo "NETWORK_VOLUME directory '$NETWORK_VOLUME' does not exist. You are NOT using a network volume. Setting NETWORK_VOLUME to '/' (root directory)."
@@ -27,8 +18,11 @@ else
     jupyter-lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password='' --ServerApp.allow_origin='*' --ServerApp.allow_credentials=True --notebook-dir=/workspace &
 fi
 
+if [ ! -d "comfyui-discord-bot" ]; then
+  git clone https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git
+fi
+
 COMFYUI_DIR="$NETWORK_VOLUME/ComfyUI"
-WORKFLOW_DIR="$NETWORK_VOLUME/ComfyUI/user/default/workflows"
 
 if [ ! -d "$COMFYUI_DIR" ]; then
     mv /ComfyUI "$COMFYUI_DIR"
@@ -41,51 +35,6 @@ git clone "https://github.com/Hearmeman24/CivitAI_Downloader.git" || { echo "Git
 mv CivitAI_Downloader/download.py "/usr/local/bin/" || { echo "Move failed"; exit 1; }
 chmod +x "/usr/local/bin/download.py" || { echo "Chmod failed"; exit 1; }
 rm -rf CivitAI_Downloader  # Clean up the cloned repo
-
-if [ "$download_faceid" == "true" ]; then
-  # Define target directories
-  IPADAPTER_DIR="$NETWORK_VOLUME/ComfyUI/models/ipadapter"
-  CLIPVISION_DIR="$NETWORK_VOLUME/ComfyUI/models/clip_vision"
-
-  # Create directories if they don't exist
-  mkdir -p "$IPADAPTER_DIR"
-  mkdir -p "$CLIPVISION_DIR"
-
-  # Declare an associative array for IP-Adapter files
-  declare -A IPADAPTER_FILES=(
-      ["ip-adapter-plus-face_sdxl_vit-h.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors"
-      ["ip-adapter-plus_sdxl_vit-h.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors"
-      ["ip-adapter_sdxl_vit-h.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter_sdxl_vit-h.safetensors"
-      ["ip-adapter-faceid-plusv2_sdxl.bin"]="https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin"
-  )
-
-  # Declare an associative array for CLIP Vision files
-  declare -A CLIPVISION_FILES=(
-      ["CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors"
-      ["CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors"
-  )
-
-  # Function to download files
-  download_files() {
-      local TARGET_DIR=$1
-      declare -n FILES=$2  # Reference the associative array
-
-      for FILE in "${!FILES[@]}"; do
-          FILE_PATH="$TARGET_DIR/$FILE"
-          if [ ! -f "$FILE_PATH" ]; then
-              wget -O "$FILE_PATH" "${FILES[$FILE]}"
-          else
-              echo "$FILE already exists, skipping download."
-          fi
-      done
-  }
-download_files "$IPADAPTER_DIR" IPADAPTER_FILES
-download_files "$CLIPVISION_DIR" CLIPVISION_FILES
-if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" ]; then
-    wget -O "$NETWORK_VOLUME/ComfyUI/models/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" \
-    https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors
-fi
-fi
 
 if [ "$download_union_control_net" == "true" ]; then
   mkdir -p "$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0"
@@ -167,70 +116,11 @@ done
 
 echo "All models downloaded successfully!"
 
-echo "Checking and copying workflow..."
-mkdir -p "$WORKFLOW_DIR"
-
-cd /
-
-WORKFLOWS=("SDXL_Upscaling.json" "Basic_SDXL.json" "SDXL_LATENT_UPSCALING_V2.json" "SDXL_Consistent_Character_No_Lora.json")
-
-for WORKFLOW in "${WORKFLOWS[@]}"; do
-    if [ -f "./$WORKFLOW" ]; then
-        if [ ! -f "$WORKFLOW_DIR/$WORKFLOW" ]; then
-            mv "./$WORKFLOW" "$WORKFLOW_DIR"
-            echo "$WORKFLOW copied."
-        else
-            echo "$WORKFLOW already exists in the target directory, skipping move."
-        fi
-    else
-        echo "$WORKFLOW not found in the current directory."
-    fi
-done
-
 # Workspace as main working directory
 echo "cd $NETWORK_VOLUME" >> ~/.bashrc
 
-if [ "$change_preview_method" == "true" ]; then
-    echo "Updating default preview method..."
-    CONFIG_PATH="$NETWORK_VOLUME/ComfyUI/user/default/ComfyUI-Manager"
-    CONFIG_FILE="$CONFIG_PATH/config.ini"
+echo "starting bot in the background"
+python3 /comfyui-discord-bot/bot.py &
 
-# Ensure the directory exists
-mkdir -p "$CONFIG_PATH"
-
-# Create the config file if it doesn't exist
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Creating config.ini..."
-    cat <<EOL > "$CONFIG_FILE"
-[default]
-preview_method = auto
-git_exe =
-use_uv = False
-channel_url = https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main
-share_option = all
-bypass_ssl = False
-file_logging = True
-component_policy = workflow
-update_policy = stable-comfyui
-windows_selector_event_loop_policy = False
-model_download_by_agent = False
-downgrade_blacklist =
-security_level = normal
-skip_migration_check = False
-always_lazy_install = False
-network_mode = public
-db_mode = cache
-EOL
-else
-    echo "config.ini already exists. Updating preview_method..."
-    sed -i 's/^preview_method = .*/preview_method = auto/' "$CONFIG_FILE"
-fi
-echo "Config file setup complete!"
-    echo "Default preview method updated to 'auto'"
-else
-    echo "Skipping preview method update (change_preview_method is not 'true')."
-fi
-
-# Start ComfyUI
 echo "Starting ComfyUI"
 python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen
