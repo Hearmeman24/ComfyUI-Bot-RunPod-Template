@@ -46,23 +46,6 @@ fi
 
 # Download upscale model
 echo "Downloading additional models"
-mkdir -p "$NETWORK_VOLUME/ComfyUI/models/upscale_models"
-if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/upscale_models/4x_foolhardy_Remacri.pt" ]; then
-    wget -O "$NETWORK_VOLUME/ComfyUI/models/upscale_models/4x_foolhardy_Remacri.pt" \
-    https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth
-fi
-
-mkdir -p "$NETWORK_VOLUME/ComfyUI/models/ultralytics/segm"
-if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/ultralytics/segm/face_yolov8m-seg_60.pt" ]; then
-    wget -O "$NETWORK_VOLUME/ComfyUI/models/ultralytics/segm/face_yolov8m-seg_60.pt" \
-    https://huggingface.co/24xx/segm/resolve/main/face_yolov8m-seg_60.pt
-fi
-
-mkdir -p "$NETWORK_VOLUME/ComfyUI/models/sams"
-if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/sams/sam_vit_b_01ec64.pth" ]; then
-    wget -O "$NETWORK_VOLUME/ComfyUI/models/sams/sam_vit_b_01ec64.pth" \
-    https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/sams/sam_vit_b_01ec64.pth
-fi
 
 mkdir -p "$NETWORK_VOLUME/ComfyUI/models/ultralytics/bbox"
 if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/ultralytics/bbox/Eyes.pt" ]; then
@@ -120,7 +103,7 @@ echo "All models downloaded successfully!"
 echo "cd $NETWORK_VOLUME" >> ~/.bashrc
 
 echo "Starting worker"
-python3 "$NETWORK_VOLUME/comfyui-discord-bot/worker.py
+python3 "$NETWORK_VOLUME"/comfyui-discord-bot/worker.py
 
 echo "Starting ComfyUI"
 python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen
