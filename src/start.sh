@@ -119,8 +119,8 @@ echo "All models downloaded successfully!"
 # Workspace as main working directory
 echo "cd $NETWORK_VOLUME" >> ~/.bashrc
 
-echo "starting bot in the background"
-python3 /comfyui-discord-bot/bot.py &
+echo "Starting worker"
+python3 "$NETWORK_VOLUME/comfyui-discord-bot/worker.py
 
 echo "Starting ComfyUI"
 python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen
