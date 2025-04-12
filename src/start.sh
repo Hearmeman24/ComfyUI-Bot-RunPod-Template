@@ -106,7 +106,7 @@ echo "All models downloaded successfully!"
 echo "cd $NETWORK_VOLUME" >> ~/.bashrc
 
 echo "Starting worker"
-python3 "$NETWORK_VOLUME"/comfyui-discord-bot/worker.py
+nohup python3 "$NETWORK_VOLUME"/comfyui-discord-bot/worker.py > "$NETWORK_VOLUME"/worker.log 2>&1 &
 
 echo "Starting ComfyUI"
 python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen
