@@ -20,8 +20,8 @@ fi
 
 if [ ! -d "comfyui-discord-bot" ]; then
   git clone https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git
-  cd comfyui-discord-bot
-  pip install -r requiremenets.txt
+  cd /comfyui-discord-bot
+  pip install -r requirements.txt
   cd /
 fi
 
