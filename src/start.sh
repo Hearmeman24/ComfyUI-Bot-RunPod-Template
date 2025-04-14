@@ -39,6 +39,59 @@ mv CivitAI_Downloader/download.py "/usr/local/bin/" || { echo "Move failed"; exi
 chmod +x "/usr/local/bin/download.py" || { echo "Chmod failed"; exit 1; }
 rm -rf CivitAI_Downloader  # Clean up the cloned repo
 
+if [ "$download_faceid" == "true" ]; then
+  # Define target directories
+  IPADAPTER_DIR="$NETWORK_VOLUME/ComfyUI/models/ipadapter"
+  CLIPVISION_DIR="$NETWORK_VOLUME/ComfyUI/models/clip_vision"
+
+  # Create directories if they don't exist
+  mkdir -p "$IPADAPTER_DIR"
+  mkdir -p "$CLIPVISION_DIR"
+
+  # Declare an associative array for IP-Adapter files
+  declare -A IPADAPTER_FILES=(
+      ["ip-adapter-plus-face_sdxl_vit-h.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors"
+      ["ip-adapter-plus_sdxl_vit-h.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors"
+      ["ip-adapter_sdxl_vit-h.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter_sdxl_vit-h.safetensors"
+      ["ip-adapter-faceid-plusv2_sdxl.bin"]="https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin"
+  )
+
+  # Declare an associative array for CLIP Vision files
+  declare -A CLIPVISION_FILES=(
+      ["CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors"
+      ["CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors"]="https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors"
+  )
+
+  # Function to download files
+  download_files() {
+      local TARGET_DIR=$1
+      declare -n FILES=$2  # Reference the associative array
+
+      for FILE in "${!FILES[@]}"; do
+          FILE_PATH="$TARGET_DIR/$FILE"
+          if [ ! -f "$FILE_PATH" ]; then
+              wget -O "$FILE_PATH" "${FILES[$FILE]}"
+          else
+              echo "$FILE already exists, skipping download."
+          fi
+      done
+  }
+download_files "$IPADAPTER_DIR" IPADAPTER_FILES
+download_files "$CLIPVISION_DIR" CLIPVISION_FILES
+if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" ]; then
+    wget -O "$NETWORK_VOLUME/ComfyUI/models/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors" \
+    https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors
+fi
+fi
+
+if [ "$download_union_control_net" == "true" ]; then
+  mkdir -p "$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0"
+  if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0" ]; then
+      wget -O "$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0/diffusion_pytorch_model_promax.safetensors" \
+      https://huggingface.co/xinsir/controlnet-union-sdxl-1.0/resolve/main/diffusion_pytorch_model_promax.safetensors
+  fi
+fi
+
 if [ "$download_union_control_net" == "true" ]; then
   mkdir -p "$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0"
   if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0/diffusion_pytorch_model_promax.safetensors" ]; then
