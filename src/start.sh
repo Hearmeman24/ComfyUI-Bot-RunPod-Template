@@ -21,6 +21,7 @@ fi
 if [ ! -d "comfyui-discord-bot" ]; then
   git clone https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git
   cd /comfyui-discord-bot
+  mv Potrait01.png /ComfyUI/input
   pip install -r requirements.txt
   cd /
 fi
