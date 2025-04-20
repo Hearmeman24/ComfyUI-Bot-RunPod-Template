@@ -4,29 +4,125 @@
 TCMALLOC="$(ldconfig -p | grep -Po "libtcmalloc.so.\d" | head -n 1)"
 export LD_PRELOAD="${TCMALLOC}"
 
-# Set the network volume path
-NETWORK_VOLUME="/workspace"
+set -eo pipefail
+set +u
 
-# Check if NETWORK_VOLUME exists; if not, use root directory instead
-if [ ! -d "$NETWORK_VOLUME" ]; then
-    echo "NETWORK_VOLUME directory '$NETWORK_VOLUME' does not exist. You are NOT using a network volume. Setting NETWORK_VOLUME to '/' (root directory)."
-    NETWORK_VOLUME="/"
-    echo "NETWORK_VOLUME directory doesn't exist. Starting JupyterLab on root directory..."
-    jupyter-lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password='' --ServerApp.allow_origin='*' --ServerApp.allow_credentials=True --notebook-dir=/ &
+if [[ "${IS_DEV,,}" =~ ^(true|1|t|yes)$ ]]; then
+    API_URL="http://64.176.170.64:8000"  # Replace with your development API URL
+    echo "Using development API endpoint"
 else
-    echo "NETWORK_VOLUME directory exists. Starting JupyterLab..."
-    jupyter-lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password='' --ServerApp.allow_origin='*' --ServerApp.allow_credentials=True --notebook-dir=/workspace &
+    API_URL="http://64.176.168.207:8000"  # Replace with your production API URL
+    echo "Using production API endpoint"
 fi
 
-if [ ! -d "comfyui-discord-bot" ]; then
-  git clone https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git
-  cd /comfyui-discord-bot
-  mv Potrait01.png /ComfyUI/input
-  pip install -r requirements.txt
-  cd /
+URL="http://127.0.0.1:8188"
+
+# Function to report pod status
+  report_status() {
+    local status=$1
+    local details=$2
+
+    echo "Reporting status: $details"
+
+    curl -X POST "${API_URL}/pods/$RUNPOD_POD_ID/status" \
+      -H "Content-Type: application/json" \
+      -H "x-api-key: ${API_KEY}" \
+      -d "{\"initialized\": $status, \"details\": \"$details\"}" \
+      --silent
+
+    echo "Status reported: $status - $details"
+}
+
+report_status false "Starting initialization"
+if [ -d "/workspace" ]; then
+    NETWORK_VOLUME="/workspace"
+# If not, check if /runpod-volume exists
+elif [ -d "/runpod-volume" ]; then
+    NETWORK_VOLUME="/runpod-volume"
+# Fallback to root if neither directory exists
+else
+    echo "Warning: Neither /workspace nor /runpod-volume exists, falling back to root directory"
+    NETWORK_VOLUME="/"
 fi
 
+echo "Using NETWORK_VOLUME: $NETWORK_VOLUME"
+pip install runpod
+FLAG_FILE="$NETWORK_VOLUME/.comfyui_initialized"
 COMFYUI_DIR="$NETWORK_VOLUME/ComfyUI"
+REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot"
+
+sync_bot_repo() {
+  # pick branch based on IS_DEV
+  if [ "${IS_DEV:-false}" = "true" ]; then
+    BRANCH="dev"
+  else
+    BRANCH="master"
+  fi
+
+  echo "Syncing bot repo (branch: $BRANCH)…"
+  if [ ! -d "$REPO_DIR" ]; then
+    echo "Cloning '$BRANCH' into $REPO_DIR"
+    git clone --branch "$BRANCH" \
+      "https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git" \
+      "$REPO_DIR"
+    echo "Clone complete"
+
+    echo "Installing Python deps…"
+    cd "$REPO_DIR"
+    pip install --upgrade -r requirements.txt
+    echo "Dependencies installed"
+    cd /
+  else
+    echo "Updating existing repo in $REPO_DIR"
+    cd "$REPO_DIR"
+    git fetch origin
+    git checkout "$BRANCH"
+    git pull origin "$BRANCH"
+  fi
+}
+
+if [ -f "$FLAG_FILE" ]; then
+  echo "FLAG FILE FOUND"
+
+  sync_bot_repo
+
+  echo "▶️  Starting ComfyUI"
+  # group both the main and fallback commands so they share the same log
+  nohup python3 "$NETWORK_VOLUME"/ComfyUI/main.py --listen > "$NETWORK_VOLUME"/comfyui_nohup.log 2>&1 &
+
+  echo "⏳  Waiting for ComfyUI to be up at $URL…"
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "🔧 curl not found. Installing..."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update && apt-get install -y curl
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y curl
+    else
+      echo "❌ No supported package manager found. Please install curl manually."
+      exit 1
+    fi
+  fi
+  until curl --silent --fail "$URL" --output /dev/null; do
+    echo "🔄  Still waiting…"
+    sleep 2
+  done
+
+  echo "✅  ComfyUI is up! Starting worker!"
+  nohup python3 "$NETWORK_VOLUME/comfyui-discord-bot/worker.py" \
+    > "$NETWORK_VOLUME/worker.log" 2>&1 &
+
+  report_status true "Pod fully initialized and ready for processing"
+  echo "Initialization complete! Pod is ready to process jobs."
+
+  # Wait on background jobs forever
+  wait
+
+else
+  echo "NO FLAG FILE FOUND – starting initial setup"
+fi
+
+sync_bot_repo
+
 
 if [ ! -d "$COMFYUI_DIR" ]; then
     mv /ComfyUI "$COMFYUI_DIR"
@@ -39,6 +135,8 @@ git clone "https://github.com/Hearmeman24/CivitAI_Downloader.git" || { echo "Git
 mv CivitAI_Downloader/download.py "/usr/local/bin/" || { echo "Move failed"; exit 1; }
 chmod +x "/usr/local/bin/download.py" || { echo "Chmod failed"; exit 1; }
 rm -rf CivitAI_Downloader  # Clean up the cloned repo
+pip install huggingface_hub
+pip install onnxruntime-gpu
 
 if [ "$download_faceid" == "true" ]; then
   # Define target directories
@@ -138,29 +236,65 @@ fi
 
 echo "Finished downloading models!"
 
-declare -A MODEL_CATEGORIES=(
-    ["$NETWORK_VOLUME/ComfyUI/models/checkpoints"]="$CHECKPOINT_IDS_TO_DOWNLOAD"
-    ["$NETWORK_VOLUME/ComfyUI/models/loras"]="$LORAS_IDS_TO_DOWNLOAD"
+declare -A MODEL_CATEGORY_FILES=(
+    ["$NETWORK_VOLUME/ComfyUI/models/checkpoints"]="$NETWORK_VOLUME/comfyui-discord-bot/downloads/checkpoint_to_download.txt"
+    ["$NETWORK_VOLUME/ComfyUI/models/loras"]="$NETWORK_VOLUME/comfyui-discord-bot/downloads/image_lora_to_download.txt"
 )
 
 # Ensure directories exist and download models
-for TARGET_DIR in "${!MODEL_CATEGORIES[@]}"; do
+for TARGET_DIR in "${!MODEL_CATEGORY_FILES[@]}"; do
+    CONFIG_FILE="${MODEL_CATEGORY_FILES[$TARGET_DIR]}"
+
+    # Skip if the file doesn't exist
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Skipping downloads for $TARGET_DIR (file $CONFIG_FILE not found)"
+        continue
+    fi
+
+    # Read comma-separated model IDs from the file
+    MODEL_IDS_STRING=$(cat "$CONFIG_FILE")
+
+    # Skip if the file is empty or contains placeholder text
+    if [ -z "$MODEL_IDS_STRING" ] || [ "$MODEL_IDS_STRING" == "replace_with_ids" ]; then
+        echo "Skipping downloads for $TARGET_DIR ($CONFIG_FILE is empty or contains placeholder)"
+        continue
+    fi
+
     mkdir -p "$TARGET_DIR"
-    IFS=',' read -ra MODEL_IDS <<< "${MODEL_CATEGORIES[$TARGET_DIR]}"
+    IFS=',' read -ra MODEL_IDS <<< "$MODEL_IDS_STRING"
 
     for MODEL_ID in "${MODEL_IDS[@]}"; do
         echo "Downloading model: $MODEL_ID to $TARGET_DIR"
-        (cd "$TARGET_DIR" && download.py --model "$MODEL_ID")
+        (cd "$TARGET_DIR" && download.py --model "$MODEL_ID") || {
+            echo "ERROR: Failed to download model $MODEL_ID to $TARGET_DIR, continuing with next model..."
+        }
     done
 done
 
+
 echo "All models downloaded successfully!"
 
-# Workspace as main working directory
-echo "cd $NETWORK_VOLUME" >> ~/.bashrc
-
-echo "Starting worker"
-nohup python3 "$NETWORK_VOLUME"/comfyui-discord-bot/worker.py > "$NETWORK_VOLUME"/worker.log 2>&1 &
-
 echo "Starting ComfyUI"
-python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen
+touch "$FLAG_FILE"
+nohup python3 "$NETWORK_VOLUME"/ComfyUI/main.py --listen > "$NETWORK_VOLUME"/comfyui_nohup.log 2>&1 &
+if ! command -v curl >/dev/null 2>&1; then
+    echo "🔧 curl not found. Installing..."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update && apt-get install -y curl
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y curl
+    else
+      echo "❌ No supported package manager found. Please install curl manually."
+      exit 1
+    fi
+  fi
+until curl --silent --fail "$URL" --output /dev/null; do
+    echo "🔄  Still waiting…"
+    sleep 2
+done
+echo "ComfyUI is UP Starting worker"
+nohup python3 "$NETWORK_VOLUME"/comfyui-discord-bot/worker.py > "$NETWORK_VOLUME"/worker.log 2>&1 &
+report_status true "Pod fully initialized and ready for processing"
+echo "Initialization complete! Pod is ready to process jobs."
+
+wait
