@@ -64,6 +64,5 @@ RUN for repo in \
 COPY src/start_script.sh /start_script.sh
 COPY Eyes.pt /Eyes.pt
 COPY 4xLSDIR.pth /4xLSDIR.pth
-COPY 4xFaceUpDAT.pth /4xFaceUpDAT.pth
 
 CMD ["/start_script.sh"]
