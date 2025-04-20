@@ -276,7 +276,7 @@ echo "All models downloaded successfully!"
 
 echo "Starting ComfyUI"
 touch "$FLAG_FILE"
-nohup python3 "$NETWORK_VOLUME"/ComfyUI/main.py --listen > "$NETWORK_VOLUME"/comfyui_nohup.log 2>&1 &
+nohup python3 "$NETWORK_VOLUME"/ComfyUI/main.py --disable-auto-launch --disable-metadata --listen 0.0.0.0 > "$NETWORK_VOLUME"/comfyui_nohup.log 2>&1 &
 if ! command -v curl >/dev/null 2>&1; then
     echo "🔧 curl not found. Installing..."
     if command -v apt-get >/dev/null 2>&1; then
