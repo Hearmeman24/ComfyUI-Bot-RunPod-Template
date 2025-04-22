@@ -59,31 +59,38 @@ if [ "${IS_DEV:-false}" = "true" ]; then
 fi
 
 sync_bot_repo() {
-  echo "Syncing bot repo (branch: $BRANCH)…"
+  echo "Syncing bot repo (branch: $BRANCH)..."
   if [ ! -d "$REPO_DIR" ]; then
     echo "Cloning '$BRANCH' into $REPO_DIR"
+    mkdir -p "$(dirname "$REPO_DIR")"
     git clone --branch "$BRANCH" \
       "https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git" \
       "$REPO_DIR"
     echo "Clone complete"
 
-    echo "Installing Python deps…"
+    echo "Installing Python deps..."
     cd "$REPO_DIR"
-    git checkout -- __pycache__/*.pyc
-    git checkout -- **/__pycache__/*.pyc
+    # Add pip requirements installation here if needed
     cd /
   else
     echo "Updating existing repo in $REPO_DIR"
     cd "$REPO_DIR"
-    git checkout -- __pycache__/*.pyc
-    git checkout -- **/__pycache__/*.pyc
+
+    # Clean up any Python cache files
+    find . -name "*.pyc" -delete 2>/dev/null || true
+    find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+    # Then proceed with git operations
     git fetch origin
     git checkout "$BRANCH"
+
+    # Try pull, if it fails do hard reset
     git pull origin "$BRANCH" || {
       echo "Pull failed, using force reset"
       git fetch origin "$BRANCH"
       git reset --hard "origin/$BRANCH"
     }
+    cd /
   fi
 }
 
@@ -280,7 +287,7 @@ until curl --silent --fail "$URL" --output /dev/null; do
 done
 
 echo "ComfyUI is UP Starting worker"
-nohup bash -c "python3 \"$NETWORK_VOLUME\"/comfyui-discord-bot/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
 WORKER_PID=$!
 
 report_status true "Pod fully initialized and ready for processing"
