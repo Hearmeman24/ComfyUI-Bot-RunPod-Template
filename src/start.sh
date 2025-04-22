@@ -34,6 +34,7 @@ URL="http://127.0.0.1:8188"
 }
 
 report_status false "Starting initialization"
+pip install insightface==0.7.3
 if [ -d "/workspace" ]; then
     NETWORK_VOLUME="/workspace"
 # If not, check if /runpod-volume exists
@@ -88,28 +89,16 @@ if [ -f "$FLAG_FILE" ]; then
 
   echo "▶️  Starting ComfyUI"
   # group both the main and fallback commands so they share the same log
-  nohup python3 "$NETWORK_VOLUME"/ComfyUI/main.py --listen > "$NETWORK_VOLUME"/comfyui_nohup.log 2>&1 &
+  mkdir -p "$NETWORK_VOLUME/${RUNPOD_POD_ID}"
+  nohup bash -c "python3 \"$NETWORK_VOLUME\"/ComfyUI/main.py --listen 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
 
-  echo "⏳  Waiting for ComfyUI to be up at $URL…"
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "🔧 curl not found. Installing..."
-    if command -v apt-get >/dev/null 2>&1; then
-      apt-get update && apt-get install -y curl
-    elif command -v yum >/dev/null 2>&1; then
-      yum install -y curl
-    else
-      echo "❌ No supported package manager found. Please install curl manually."
-      exit 1
-    fi
-  fi
   until curl --silent --fail "$URL" --output /dev/null; do
-    echo "🔄  Still waiting…"
-    sleep 2
+      echo "🔄  Still waiting…"
+      sleep 2
   done
 
-  echo "✅  ComfyUI is up! Starting worker!"
-  nohup python3 "$NETWORK_VOLUME/comfyui-discord-bot/worker.py" \
-    > "$NETWORK_VOLUME/worker.log" 2>&1 &
+  echo "ComfyUI is UP Starting worker"
+  nohup bash -c "python3 \"$NETWORK_VOLUME\"/comfyui-discord-bot/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
 
   report_status true "Pod fully initialized and ready for processing"
   echo "Initialization complete! Pod is ready to process jobs."
@@ -276,25 +265,20 @@ echo "All models downloaded successfully!"
 
 echo "Starting ComfyUI"
 touch "$FLAG_FILE"
-nohup python3 "$NETWORK_VOLUME"/ComfyUI/main.py --disable-auto-launch --disable-metadata --listen 0.0.0.0 > "$NETWORK_VOLUME"/comfyui_nohup.log 2>&1 &
-if ! command -v curl >/dev/null 2>&1; then
-    echo "🔧 curl not found. Installing..."
-    if command -v apt-get >/dev/null 2>&1; then
-      apt-get update && apt-get install -y curl
-    elif command -v yum >/dev/null 2>&1; then
-      yum install -y curl
-    else
-      echo "❌ No supported package manager found. Please install curl manually."
-      exit 1
-    fi
-  fi
+mkdir -p "$NETWORK_VOLUME/${RUNPOD_POD_ID}"
+nohup bash -c "python3 \"$NETWORK_VOLUME\"/ComfyUI/main.py --listen 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
+COMFY_PID=$!
+
 until curl --silent --fail "$URL" --output /dev/null; do
     echo "🔄  Still waiting…"
     sleep 2
 done
+
 echo "ComfyUI is UP Starting worker"
-nohup python3 "$NETWORK_VOLUME"/comfyui-discord-bot/worker.py > "$NETWORK_VOLUME"/worker.log 2>&1 &
+nohup bash -c "python3 \"$NETWORK_VOLUME\"/comfyui-discord-bot/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+WORKER_PID=$!
+
 report_status true "Pod fully initialized and ready for processing"
 echo "Initialization complete! Pod is ready to process jobs."
-
-wait
+# Wait for both processes
+wait $COMFY_PID $WORKER_PID

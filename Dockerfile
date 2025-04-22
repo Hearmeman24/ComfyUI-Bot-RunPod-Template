@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
    && rm -rf /var/lib/apt/lists/*
 
 # Use build cache for pip installations
-RUN pip install --no-cache-dir gdown comfy-cli jupyterlab jupyterlab-lsp \
+RUN pip install --no-cache-dir gdown runpod comfy-cli jupyterlab jupyterlab-lsp \
     jupyter-server jupyter-server-terminals \
     ipykernel jupyterlab_code_formatter
 EXPOSE 8888
