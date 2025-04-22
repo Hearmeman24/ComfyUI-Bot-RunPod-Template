@@ -34,6 +34,7 @@ URL="http://127.0.0.1:8188"
 }
 
 report_status false "Starting initialization"
+pip install insightface
 if [ -d "/workspace" ]; then
     NETWORK_VOLUME="/workspace"
 # If not, check if /runpod-volume exists
