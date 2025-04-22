@@ -50,16 +50,15 @@ echo "Using NETWORK_VOLUME: $NETWORK_VOLUME"
 pip install runpod
 FLAG_FILE="$NETWORK_VOLUME/.comfyui_initialized"
 COMFYUI_DIR="$NETWORK_VOLUME/ComfyUI"
-REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot"
-
-sync_bot_repo() {
-  # pick branch based on IS_DEV
-  if [ "${IS_DEV:-false}" = "true" ]; then
+if [ "${IS_DEV:-false}" = "true" ]; then
+    REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot-dev"
     BRANCH="dev"
   else
+    REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot-master"
     BRANCH="master"
-  fi
+fi
 
+sync_bot_repo() {
   echo "Syncing bot repo (branch: $BRANCH)…"
   if [ ! -d "$REPO_DIR" ]; then
     echo "Cloning '$BRANCH' into $REPO_DIR"
@@ -70,15 +69,21 @@ sync_bot_repo() {
 
     echo "Installing Python deps…"
     cd "$REPO_DIR"
-    pip install --upgrade -r requirements.txt
-    echo "Dependencies installed"
+    git checkout -- __pycache__/*.pyc
+    git checkout -- **/__pycache__/*.pyc
     cd /
   else
     echo "Updating existing repo in $REPO_DIR"
     cd "$REPO_DIR"
+    git checkout -- __pycache__/*.pyc
+    git checkout -- **/__pycache__/*.pyc
     git fetch origin
     git checkout "$BRANCH"
-    git pull origin "$BRANCH"
+    git pull origin "$BRANCH" || {
+      echo "Pull failed, using force reset"
+      git fetch origin "$BRANCH"
+      git reset --hard "origin/$BRANCH"
+    }
   fi
 }
 
@@ -98,7 +103,7 @@ if [ -f "$FLAG_FILE" ]; then
   done
 
   echo "ComfyUI is UP Starting worker"
-  nohup bash -c "python3 \"$NETWORK_VOLUME\"/comfyui-discord-bot/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+  nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
 
   report_status true "Pod fully initialized and ready for processing"
   echo "Initialization complete! Pod is ready to process jobs."
@@ -226,8 +231,8 @@ fi
 echo "Finished downloading models!"
 
 declare -A MODEL_CATEGORY_FILES=(
-    ["$NETWORK_VOLUME/ComfyUI/models/checkpoints"]="$NETWORK_VOLUME/comfyui-discord-bot/downloads/checkpoint_to_download.txt"
-    ["$NETWORK_VOLUME/ComfyUI/models/loras"]="$NETWORK_VOLUME/comfyui-discord-bot/downloads/image_lora_to_download.txt"
+    ["$NETWORK_VOLUME/ComfyUI/models/checkpoints"]="$REPO_DIR/downloads/checkpoint_to_download.txt"
+    ["$NETWORK_VOLUME/ComfyUI/models/loras"]="$REPO_DIR/comfyui-discord-bot/downloads/image_lora_to_download.txt"
 )
 
 # Ensure directories exist and download models
