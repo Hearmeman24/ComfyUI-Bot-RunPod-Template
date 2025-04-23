@@ -50,37 +50,50 @@ echo "Using NETWORK_VOLUME: $NETWORK_VOLUME"
 pip install runpod
 FLAG_FILE="$NETWORK_VOLUME/.comfyui_initialized"
 COMFYUI_DIR="$NETWORK_VOLUME/ComfyUI"
-REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot"
-
-sync_bot_repo() {
-  # pick branch based on IS_DEV
-  if [ "${IS_DEV:-false}" = "true" ]; then
+if [ "${IS_DEV:-false}" = "true" ]; then
+    REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot-dev"
     BRANCH="dev"
   else
+    REPO_DIR="$NETWORK_VOLUME/comfyui-discord-bot-master"
     BRANCH="master"
-  fi
+fi
 
-  echo "Syncing bot repo (branch: $BRANCH)…"
-  if [ ! -d "$REPO_DIR" ]; then
-    echo "Cloning '$BRANCH' into $REPO_DIR"
-    git clone --branch "$BRANCH" \
-      "https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git" \
-      "$REPO_DIR"
-    echo "Clone complete"
+if [ ! -d "$REPO_DIR" ]; then
+  echo "Cloning '$BRANCH' into $REPO_DIR"
+  mkdir -p "$(dirname "$REPO_DIR")"
+  git clone --branch "$BRANCH" \
+    "https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git" \
+    "$REPO_DIR"
+  echo "Clone complete"
 
-    echo "Installing Python deps…"
-    cd "$REPO_DIR"
-    pip install --upgrade -r requirements.txt
-    echo "Dependencies installed"
-    cd /
-  else
-    echo "Updating existing repo in $REPO_DIR"
-    cd "$REPO_DIR"
-    git fetch origin
-    git checkout "$BRANCH"
-    git pull origin "$BRANCH"
-  fi
-}
+  echo "Installing Python deps..."
+  cd "$REPO_DIR"
+  # Add pip requirements installation here if needed
+  cd /
+else
+  echo "Updating existing repo in $REPO_DIR"
+  cd "$REPO_DIR"
+
+  # Clean up any Python cache files first
+  find . -name "*.pyc" -delete 2>/dev/null || true
+  find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+  # Remove specific problematic files if they're tracked in git
+  git rm --cached __pycache__/config.cpython-310.pyc 2>/dev/null || true
+
+  # Then proceed with git operations
+  git fetch origin
+  git checkout "$BRANCH"
+
+  # Try pull, if it fails do hard reset
+  git pull origin "$BRANCH" || {
+    echo "Pull failed, using force reset"
+    git fetch origin "$BRANCH"
+    git reset --hard "origin/$BRANCH"
+  }
+
+  cd /
+fi
 
 if [ -f "$FLAG_FILE" ]; then
   echo "FLAG FILE FOUND"
@@ -98,7 +111,7 @@ if [ -f "$FLAG_FILE" ]; then
   done
 
   echo "ComfyUI is UP Starting worker"
-  nohup bash -c "python3 \"$NETWORK_VOLUME\"/comfyui-discord-bot/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+  nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
 
   report_status true "Pod fully initialized and ready for processing"
   echo "Initialization complete! Pod is ready to process jobs."
@@ -226,8 +239,8 @@ fi
 echo "Finished downloading models!"
 
 declare -A MODEL_CATEGORY_FILES=(
-    ["$NETWORK_VOLUME/ComfyUI/models/checkpoints"]="$NETWORK_VOLUME/comfyui-discord-bot/downloads/checkpoint_to_download.txt"
-    ["$NETWORK_VOLUME/ComfyUI/models/loras"]="$NETWORK_VOLUME/comfyui-discord-bot/downloads/image_lora_to_download.txt"
+    ["$NETWORK_VOLUME/ComfyUI/models/checkpoints"]="$REPO_DIR/downloads/checkpoint_to_download.txt"
+    ["$NETWORK_VOLUME/ComfyUI/models/loras"]="$REPO_DIR/comfyui-discord-bot/downloads/image_lora_to_download.txt"
 )
 
 # Ensure directories exist and download models
@@ -275,7 +288,7 @@ until curl --silent --fail "$URL" --output /dev/null; do
 done
 
 echo "ComfyUI is UP Starting worker"
-nohup bash -c "python3 \"$NETWORK_VOLUME\"/comfyui-discord-bot/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
 WORKER_PID=$!
 
 report_status true "Pod fully initialized and ready for processing"
