@@ -58,42 +58,46 @@ if [ "${IS_DEV:-false}" = "true" ]; then
     BRANCH="master"
 fi
 
-if [ ! -d "$REPO_DIR" ]; then
-  echo "Cloning '$BRANCH' into $REPO_DIR"
-  mkdir -p "$(dirname "$REPO_DIR")"
-  git clone --branch "$BRANCH" \
-    "https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git" \
-    "$REPO_DIR"
-  echo "Clone complete"
+sync_bot_repo() {
+  echo "Syncing bot repo (branch: $BRANCH)..."
 
-  echo "Installing Python deps..."
-  cd "$REPO_DIR"
-  # Add pip requirements installation here if needed
-  cd /
-else
-  echo "Updating existing repo in $REPO_DIR"
-  cd "$REPO_DIR"
+  if [ ! -d "$REPO_DIR" ]; then
+    echo "Cloning '$BRANCH' into $REPO_DIR"
+    mkdir -p "$(dirname "$REPO_DIR")"
+    git clone --branch "$BRANCH" \
+      "https://${GITHUB_PAT}@github.com/Hearmeman24/comfyui-discord-bot.git" \
+      "$REPO_DIR"
+    echo "Clone complete"
 
-  # Clean up any Python cache files first
-  find . -name "*.pyc" -delete 2>/dev/null || true
-  find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+    echo "Installing Python deps..."
+    cd "$REPO_DIR"
+    # Add pip requirements installation here if needed
+    cd /
+  else
+    echo "Updating existing repo in $REPO_DIR"
+    cd "$REPO_DIR"
 
-  # Remove specific problematic files if they're tracked in git
-  git rm --cached __pycache__/config.cpython-310.pyc 2>/dev/null || true
+    # Clean up any Python cache files first
+    find . -name "*.pyc" -delete 2>/dev/null || true
+    find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
-  # Then proceed with git operations
-  git fetch origin
-  git checkout "$BRANCH"
+    # Remove specific problematic files if they're tracked in git
+    git rm --cached __pycache__/config.cpython-310.pyc 2>/dev/null || true
 
-  # Try pull, if it fails do hard reset
-  git pull origin "$BRANCH" || {
-    echo "Pull failed, using force reset"
-    git fetch origin "$BRANCH"
-    git reset --hard "origin/$BRANCH"
-  }
+    # Then proceed with git operations
+    git fetch origin
+    git checkout "$BRANCH"
 
-  cd /
-fi
+    # Try pull, if it fails do hard reset
+    git pull origin "$BRANCH" || {
+      echo "Pull failed, using force reset"
+      git fetch origin "$BRANCH"
+      git reset --hard "origin/$BRANCH"
+    }
+
+    cd /
+  fi
+}
 
 if [ -f "$FLAG_FILE" ]; then
   echo "FLAG FILE FOUND"
