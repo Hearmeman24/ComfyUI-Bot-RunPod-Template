@@ -128,4 +128,6 @@ RUN cd /ComfyUI/custom_nodes && \
     done
 
 # Final command\
+COPY src/start_script.sh /start_script.sh
+RUN chmod +x /start_script.sh
 CMD ["/start_script.sh"]
