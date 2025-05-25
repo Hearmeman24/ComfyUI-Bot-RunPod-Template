@@ -116,7 +116,7 @@ RUN { \
 # Layer 2: checkpoint 1633727
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 1633727 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download.py -m 378499 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1633727 download."; \
     fi; \
@@ -126,6 +126,14 @@ RUN { \
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download.py -m 1609607 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+    else \
+        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1609607 download."; \
+    fi; \
+} >> /tmp/download.log 2>&1
+
+RUN { \
+    if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download.py -m 403131 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1609607 download."; \
     fi; \
