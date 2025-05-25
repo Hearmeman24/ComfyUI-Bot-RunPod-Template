@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3.12 python3.12-venv python3.12-dev \
+        python3.12 python3.12-venv aria2 python3.12-dev \
         python3-pip \
         curl ffmpeg ninja-build git git-lfs wget vim \
         libgl1 libglib2.0-0 build-essential gcc && \
@@ -107,7 +107,7 @@ ARG CIVITAI_TOKEN
 # Layer 1: checkpoint 1081768
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 1081768 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download_with_aria.py -m 1081768 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1081768 download."; \
     fi; \
@@ -116,16 +116,16 @@ RUN { \
 # Layer 2: checkpoint 1633727
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 378499 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download_with_aria.py -m 378499 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
-        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1633727 download."; \
+        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 378499 download."; \
     fi; \
 } >> /tmp/download.log 2>&1
 
 # Layer 3: checkpoint 1609607
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 1609607 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download_with_aria.py -m 1609607 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1609607 download."; \
     fi; \
@@ -133,16 +133,16 @@ RUN { \
 
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 403131 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download_with_aria.py -m 403131 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
-        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1609607 download."; \
+        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 403131 download."; \
     fi; \
 } >> /tmp/download.log 2>&1
 
 # Layer 4: checkpoint 1041855
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 1041855 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download_with_aria.py -m 1041855 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1041855 download."; \
     fi; \
@@ -151,12 +151,12 @@ RUN { \
 # Download LoRAs in a single layer, appending to the same log
 RUN { \
     if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 135867  --token "$CIVITAI_TOKEN" -o /models/loras; \
-        python /usr/local/bin/download.py -m 128461  --token "$CIVITAI_TOKEN" -o /models/loras; \
-        python /usr/local/bin/download.py -m 703107  --token "$CIVITAI_TOKEN" -o /models/loras; \
-        python /usr/local/bin/download.py -m 283697  --token "$CIVITAI_TOKEN" -o /models/loras; \
-        python /usr/local/bin/download.py -m 127928  --token "$CIVITAI_TOKEN" -o /models/loras; \
-        python /usr/local/bin/download.py -m 1071060 --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download_with_aria.py -m 135867  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download_with_aria.py -m 128461  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download_with_aria.py -m 703107  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download_with_aria.py -m 283697  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download_with_aria.py -m 127928  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download_with_aria.py -m 1071060 --token "$CIVITAI_TOKEN" -o /models/loras; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping LoRA downloads."; \
     fi; \
