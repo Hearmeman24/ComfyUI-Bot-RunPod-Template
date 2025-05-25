@@ -34,7 +34,6 @@ URL="http://127.0.0.1:8188"
 }
 
 report_status false "Starting initialization"
-pip install insightface==0.7.3
 if [ -d "/workspace" ]; then
     NETWORK_VOLUME="/workspace"
 # If not, check if /runpod-volume exists
@@ -99,7 +98,7 @@ sync_bot_repo() {
   fi
 }
 
-if [ -f "$FLAG_FILE" ]; then
+if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
   echo "FLAG FILE FOUND"
 
   sync_bot_repo
@@ -107,7 +106,7 @@ if [ -f "$FLAG_FILE" ]; then
   echo "▶️  Starting ComfyUI"
   # group both the main and fallback commands so they share the same log
   mkdir -p "$NETWORK_VOLUME/${RUNPOD_POD_ID}"
-  nohup bash -c "python3 \"$NETWORK_VOLUME\"/ComfyUI/main.py --listen 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
+  nohup bash -c "python3 \"$NETWORK_VOLUME\"/ComfyUI/main.py --listen --extra-model-paths-config '/ComfyUI-Bot-RunPod-Template/extra_model_paths.yaml' 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
 
   until curl --silent --fail "$URL" --output /dev/null; do
       echo "🔄  Still waiting…"
