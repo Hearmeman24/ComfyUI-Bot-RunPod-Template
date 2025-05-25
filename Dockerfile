@@ -127,6 +127,12 @@ RUN cd /ComfyUI/custom_nodes && \
         if [ -f "/ComfyUI/custom_nodes/$name/install.py" ]; then python "/ComfyUI/custom_nodes/$name/install.py"; fi; \
     done
 
+RUN pip install --no-cache-dir discord.py==2.5.2 \
+                              python-dotenv==1.1.0 \
+                              Requests==2.32.3 \
+                              websocket_client==1.8.0 \
+                              "httpx[http2]"
+
 # Final command\
 COPY src/start_script.sh /start_script.sh
 RUN chmod +x /start_script.sh
