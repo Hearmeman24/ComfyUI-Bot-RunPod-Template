@@ -59,43 +59,53 @@ RUN mkdir -p /models/checkpoints /models/upscale_models /models/vae /models/clip
 # Download Hugging Face models
 # ------------------------------------------------------------
 # IP-Adapter models
-RUN wget -O /models/ipadapter/ip-adapter-plus-face_sdxl_vit-h.safetensors \
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/ipadapter/ip-adapter-plus-face_sdxl_vit-h.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors && \
-    wget -O /models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors \
+    aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors && \
-    wget -O /models/ipadapter/ip-adapter_sdxl_vit-h.safetensors \
+    aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/ipadapter/ip-adapter_sdxl_vit-h.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter_sdxl_vit-h.safetensors && \
-    wget -O /models/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin \
+    aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/ipadapter/ip-adapter-faceid-plusv2_sdxl.bin \
         https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin
 
 # CLIP Vision models
-RUN wget -O /models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors \
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors && \
-    wget -O /models/clip_vision/CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors \
+    aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/clip_vision/CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors
 
 # LoRA model
-RUN wget -O /models/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors \
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/loras/ip-adapter-faceid-plusv2_sdxl_lora.safetensors \
         https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors
 
 # ControlNet Union model
-RUN wget -O /models/controlnet/SDXL/controlnet-union-sdxl-1.0/diffusion_pytorch_model_promax.safetensors \
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/controlnet/SDXL/controlnet-union-sdxl-1.0/diffusion_pytorch_model_promax.safetensors \
         https://huggingface.co/xinsir/controlnet-union-sdxl-1.0/resolve/main/diffusion_pytorch_model_promax.safetensors
 
 # ------------------------------------------------------------
 # Install CivitAI Downloader
 # ------------------------------------------------------------
 RUN git clone https://github.com/Hearmeman24/CivitAI_Downloader.git /tmp/CivitAI_Downloader && \
-    mv /tmp/CivitAI_Downloader/download.py /usr/local/bin/ && \
-    chmod +x /usr/local/bin/download.py && \
+    mv /tmp/CivitAI_Downloader/download_with_aria.py /usr/local/bin/ && \
+    chmod +x /usr/local/bin/download_with_aria.py && \
     rm -rf /tmp/CivitAI_Downloader
 
 # ------------------------------------------------------------
 # Download Upscale models
 # ------------------------------------------------------------
-RUN wget -O /models/upscale_models/4xLSDIR.pth \
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/upscale_models/4xLSDIR.pth \
         https://github.com/Phhofm/models/raw/main/4xLSDIR/4xLSDIR.pth && \
-    wget -O /models/upscale_models/4xFaceUpLDAT.pth \
+    aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --out=/models/upscale_models/4xFaceUpLDAT.pth \
         https://huggingface.co/RafaG/models-ESRGAN/resolve/82caaaedb2d27e9f76472351828178b62995c2f1/4xFaceUpLDAT.pth
 
 # ------------------------------------------------------------
