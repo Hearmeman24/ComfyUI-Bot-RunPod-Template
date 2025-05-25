@@ -104,41 +104,55 @@ RUN wget -O /models/upscale_models/4xLSDIR.pth \
 ARG CIVITAI_TOKEN
 
 # Download checkpoints - each in its own layer for better caching
-RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+# Layer 1: checkpoint 1081768
+RUN { \
+    if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download.py -m 1081768 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1081768 download."; \
-    fi
+    fi; \
+} > /tmp/download.log 2>&1
 
-RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+# Layer 2: checkpoint 1633727
+RUN { \
+    if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download.py -m 1633727 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
-        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1081768 download."; \
-    fi
+        echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1633727 download."; \
+    fi; \
+} >> /tmp/download.log 2>&1
 
-RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+# Layer 3: checkpoint 1609607
+RUN { \
+    if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download.py -m 1609607 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1609607 download."; \
-    fi
+    fi; \
+} >> /tmp/download.log 2>&1
 
-RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+# Layer 4: checkpoint 1041855
+RUN { \
+    if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download.py -m 1041855 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping checkpoint 1041855 download."; \
-    fi
+    fi; \
+} >> /tmp/download.log 2>&1
 
-# Download loras
-RUN if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download.py -m 135867 --token "$CIVITAI_TOKEN" -o /models/loras && \
-        python /usr/local/bin/download.py -m 128461 --token "$CIVITAI_TOKEN" -o /models/loras && \
-        python /usr/local/bin/download.py -m 703107 --token "$CIVITAI_TOKEN" -o /models/loras && \
-        python /usr/local/bin/download.py -m 283697 --token "$CIVITAI_TOKEN" -o /models/loras && \
-        python /usr/local/bin/download.py -m 127928 --token "$CIVITAI_TOKEN" -o /models/loras && \
+# Download LoRAs in a single layer, appending to the same log
+RUN { \
+    if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download.py -m 135867  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download.py -m 128461  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download.py -m 703107  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download.py -m 283697  --token "$CIVITAI_TOKEN" -o /models/loras; \
+        python /usr/local/bin/download.py -m 127928  --token "$CIVITAI_TOKEN" -o /models/loras; \
         python /usr/local/bin/download.py -m 1071060 --token "$CIVITAI_TOKEN" -o /models/loras; \
     else \
         echo "Warning: CIVITAI_TOKEN not provided. Skipping LoRA downloads."; \
-    fi
+    fi; \
+} >> /tmp/download.log 2>&1
 
 # ------------------------------------------------------------
 # Final stage
