@@ -1,0 +1,9 @@
+a111:
+    base_path: /
+    ipadapter: models/ip_adapter
+    clip_vision: models/clip_vision
+    controlnet: models/controlnet
+    checkpoints: models/checkpoints
+    loras: models/loras
+    upscale_models: models/upscale_models
+    vae: models/vae
