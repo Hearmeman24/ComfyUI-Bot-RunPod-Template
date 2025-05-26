@@ -129,8 +129,28 @@ RUN if [ -n "$CIVITAI_TOKEN" ]; then \
     fi
 
 RUN if [ -n "$CIVITAI_TOKEN" ]; then \
-        python /usr/local/bin/download_with_aria.py -m 1041855 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
+        python /usr/local/bin/download_with_aria.py -m 1041855 --token "$CIVITAI_TOKEN" -o /models/loras; \
     fi
+
+RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download_with_aria.py -m 1071060 --token "$CIVITAI_TOKEN" -o /models/loras; \
+    fi
+
+RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download_with_aria.py -m 283697 --token "$CIVITAI_TOKEN" -o /models/loras; \
+    fi
+
+RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download_with_aria.py -m 703107 --token "$CIVITAI_TOKEN" -o /models/loras; \
+    fi
+
+RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download_with_aria.py -m 128461 --token "$CIVITAI_TOKEN" -o /models/loras; \
+    fi
+
+RUN if [ -n "$CIVITAI_TOKEN" ]; then \
+        python /usr/local/bin/download_with_aria.py -m 135867 --token "$CIVITAI_TOKEN" -o /models/loras; \
+    fi \
 
 # Clone custom ComfyUI nodes & install their requirements
 RUN cd /ComfyUI/custom_nodes && \
