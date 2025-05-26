@@ -99,7 +99,7 @@ sync_bot_repo() {
 
 if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
   echo "FLAG FILE FOUND"
-
+  mv /Eyes.pt /ComfyUI/models/ultralytics/bbox || echo "It's already there"
   sync_bot_repo
 
   echo "▶️  Starting ComfyUI"
