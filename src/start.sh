@@ -134,7 +134,7 @@ if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
       # 3) On success, unzip; otherwise report error
       if [ "$BUFF_EXIT" -eq 0 ]; then
         echo "Download complete – unzipping now…"
-        unzip -o "$DEST/buffalo_l.zip" -d "$DEST"
+        python3 -m zipfile -e "$DEST/buffalo_l.zip" "$DEST"
         echo "Unzip finished."
         echo "ComfyUI is UP Starting worker"
         nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
