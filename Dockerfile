@@ -54,49 +54,80 @@ FROM base AS final
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Group 1: IP-Adapter models (~10 GB)
+# Group 1: IP-Adapter models (~3 GB total)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/ipadapter \
-        https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors \
-        https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors \
-        https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter_sdxl_vit-h.safetensors \
+        --out=ip-adapter-plus-face_sdxl_vit-h.safetensors \
+        https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus-face_sdxl_vit-h.safetensors
+
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --dir=/models/ipadapter \
+        --out=ip-adapter-plus_sdxl_vit-h.safetensors \
+        https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors
+
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --dir=/models/ipadapter \
+        --out=ip-adapter_sdxl_vit-h.safetensors \
+        https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter_sdxl_vit-h.safetensors
+
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --dir=/models/ipadapter \
+        --out=ip-adapter-faceid-plusv2_sdxl.bin \
         https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl.bin
 
 # Group 2: CLIP Vision models (~5 GB)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/clip_vision \
-        https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors \
+        --out=ip_adapter_image_encoder.safetensors \
+        https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors
+
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --dir=/models/clip_vision \
+        --out=ip_adapter_sdxl_image_encoder.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors
 
 # Group 3: LoRA model (~1 GB)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/loras \
+        --out=ip-adapter-faceid-plusv2_sdxl_lora.safetensors \
         https://huggingface.co/h94/IP-Adapter-FaceID/resolve/main/ip-adapter-faceid-plusv2_sdxl_lora.safetensors
 
 # Group 4: ControlNet Union model (~3 GB)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/controlnet/SDXL/controlnet-union-sdxl-1.0 \
+        --out=diffusion_pytorch_model_promax.safetensors \
         https://huggingface.co/xinsir/controlnet-union-sdxl-1.0/resolve/main/diffusion_pytorch_model_promax.safetensors
 
 # Group 5: Upscale models (~2 GB)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/upscale_models \
-        https://github.com/Phhofm/models/raw/main/4xLSDIR/4xLSDIR.pth \
+        --out=4xLSDIR.pth \
+        https://github.com/Phhofm/models/raw/main/4xLSDIR/4xLSDIR.pth
+
+RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
+        --dir=/models/upscale_models \
+        --out=4xFaceUpLDAT.pth \
         https://huggingface.co/RafaG/models-ESRGAN/resolve/82caaaedb2d27e9f76472351828178b62995c2f1/4xFaceUpLDAT.pth
 
-# Group 6: CivitAI checkpoints (one per layer, ~couple GB each)
+# Group 6: CivitAI checkpoints with proper filenames
 ARG CIVITAI_TOKEN
+
 RUN if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download_with_aria.py -m 1081768 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     fi
+
 RUN if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download_with_aria.py -m 378499 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     fi
+
 RUN if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download_with_aria.py -m 1609607 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     fi
+
 RUN if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download_with_aria.py -m 403131 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     fi
+
 RUN if [ -n "$CIVITAI_TOKEN" ]; then \
         python /usr/local/bin/download_with_aria.py -m 1041855 --token "$CIVITAI_TOKEN" -o /models/checkpoints; \
     fi
