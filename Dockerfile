@@ -78,12 +78,12 @@ RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
 # Group 2: CLIP Vision models (~5 GB)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/clip_vision \
-        --out=ip_adapter_image_encoder.safetensors \
+        --out=CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/models/image_encoder/model.safetensors
 
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/clip_vision \
-        --out=ip_adapter_sdxl_image_encoder.safetensors \
+        --out=CLIP-ViT-bigG-14-laion2B-39B-b160k.safetensors \
         https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/image_encoder/model.safetensors
 
 # Group 3: LoRA model (~1 GB)
