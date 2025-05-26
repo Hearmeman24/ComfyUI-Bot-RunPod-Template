@@ -15,6 +15,9 @@ else
     echo "Using production API endpoint"
 fi
 
+wget -P /ComfyUI/models/ultralytics/bbox https://d1s3da0dcaf6kx.cloudfront.net/Eyes.pt > download.log 2>&1 &
+WGET_PID=$!
+
 URL="http://127.0.0.1:8188"
 
 # Function to report pod status
@@ -99,7 +102,6 @@ sync_bot_repo() {
 
 if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
   echo "FLAG FILE FOUND"
-  mv /Eyes.pt /ComfyUI/models/ultralytics/bbox || echo "It's already there"
   sync_bot_repo
 
   echo "▶️  Starting ComfyUI"
@@ -112,8 +114,19 @@ if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
       sleep 2
   done
 
-  echo "ComfyUI is UP Starting worker"
-  nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+    wait $WGET_PID
+  if [ $? -eq 0 ]; then
+      echo "Download successful, continuing with next steps..."
+      # Continue with your workflow
+      echo "File downloaded: $(ls -lh Eyes.pt)"
+      echo "ComfyUI is UP Starting worker"
+      nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+  else
+      echo "Download failed, stopping here"
+      exit 1
+  fi
+
+
 
   report_status true "Pod fully initialized and ready for processing"
   echo "Initialization complete! Pod is ready to process jobs."
