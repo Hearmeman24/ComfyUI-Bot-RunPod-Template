@@ -53,7 +53,6 @@ COPY Eyes.pt /Eyes.pt
 FROM base AS final
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Group 1: IP-Adapter models (~10 GB)
 # Group 1: IP-Adapter models (~3 GB total)
 RUN aria2c -x 8 -s 8 --file-allocation=none --continue=true \
         --dir=/models/ipadapter \
