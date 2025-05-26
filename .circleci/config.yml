@@ -23,16 +23,15 @@ jobs:
             echo "$DOCKERHUB_PAT" | docker login -u "$DOCKERHUB_USER" --password-stdin
 
       - run:
-          name: Build & push without cache
+          name: Build & push with Civitai model
           command: |
             TAG="${CIRCLE_TAG:-latest}"
             IMG="docker.io/$DOCKERHUB_USER/comfyui-discord-bot-image"
 
             docker build \
               --progress=plain \
-              --no-cache \
+              --build-arg CIVITAI_TOKEN="${CIVITAI_TOKEN}" \
               -t "${IMG}:${TAG}" .
-
             docker push "${IMG}:${TAG}"
 
 workflows:
