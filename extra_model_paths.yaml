@@ -1,6 +1,6 @@
 a111:
     base_path: /
-    ipadapter: models/ip_adapter
+    ipadapter: models/ipadapter
     clip_vision: models/clip_vision
     controlnet: models/controlnet
     checkpoints: models/checkpoints
