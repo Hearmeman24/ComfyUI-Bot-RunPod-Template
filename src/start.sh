@@ -14,11 +14,18 @@ else
     API_URL="https://comfyui-job-api-prod.fly.dev"  # Replace with your production API URL
     echo "Using production API endpoint"
 fi
+DEST="/ComfyUI/models/insightface/models/buffalo_l"
+URL="https://d1s3da0dcaf6kx.cloudfront.net/buffalo_l.zip"
+LOG="download.log"
 
 wget -P /ComfyUI/models/ultralytics/bbox https://d1s3da0dcaf6kx.cloudfront.net/Eyes.pt > download.log 2>&1 &
 WGET_PID=$!
 
 wget -P /ComfyUI/input https://d1s3da0dcaf6kx.cloudfront.net/Potrait01.png >> download.log 2>&1 &
+
+wget -P "$DEST" "$URL" >> "$LOG" 2>&1 &
+BUFF_PID=$!
+echo "Started download (PID $BUFF_PID), logging to $LOG"
 
 URL="http://127.0.0.1:8188"
 
@@ -121,8 +128,20 @@ if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
       echo "Download successful, continuing with next steps..."
       # Continue with your workflow
       echo "File downloaded: $(ls -lh Eyes.pt)"
-      echo "ComfyUI is UP Starting worker"
-      nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+      wait "$BUFF_PID"
+      BUFF_EXIT=$?
+
+      # 3) On success, unzip; otherwise report error
+      if [ "$BUFF_EXIT" -eq 0 ]; then
+        echo "Download complete – unzipping now…"
+        unzip -o "$DEST/buffalo_l.zip" -d "$DEST"
+        echo "Unzip finished."
+        echo "ComfyUI is UP Starting worker"
+        nohup bash -c "python3 \"$REPO_DIR\"/worker.py 2>&1 | tee \"$NETWORK_VOLUME\"/\"$RUNPOD_POD_ID\"/worker.log" &
+      else
+        echo "⚠️ Download failed with exit code $BUFF_EXIT. Check $LOG for details."
+      fi
+
   else
       echo "Download failed, stopping here"
       exit 1
