@@ -18,6 +18,8 @@ fi
 wget -P /ComfyUI/models/ultralytics/bbox https://d1s3da0dcaf6kx.cloudfront.net/Eyes.pt > download.log 2>&1 &
 WGET_PID=$!
 
+wget -P /ComfyUI/input https://d1s3da0dcaf6kx.cloudfront.net/Potrait01.png >> download.log 2>&1 &
+
 URL="http://127.0.0.1:8188"
 
 # Function to report pod status
