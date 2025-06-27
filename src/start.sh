@@ -112,6 +112,7 @@ sync_bot_repo() {
 if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
   echo "FLAG FILE FOUND"
   sync_bot_repo
+  echo "cloning ComfyUI-load-image-from-url"
   cd /ComfyUI/custom_nodes
   git clone https://github.com/tsogzark/ComfyUI-load-image-from-url.git
 
