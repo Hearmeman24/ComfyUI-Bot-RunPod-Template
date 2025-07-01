@@ -182,7 +182,8 @@ RUN cd /ComfyUI/custom_nodes && \
         https://github.com/chflame163/ComfyUI_LayerStyle_Advance.git \
         https://github.com/cubiq/ComfyUI_IPAdapter_plus.git \
         https://github.com/chrisgoringe/cg-use-everywhere.git \
-        https://github.com/M1kep/ComfyLiterals.git; \
+        https://github.com/M1kep/ComfyLiterals.git \
+        https://github.com/tsogzark/ComfyUI-load-image-from-url.git; \
     do \
         git clone --depth 1 "$repo"; \
         name=$(basename "$repo" .git); \
