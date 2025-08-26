@@ -145,8 +145,25 @@ jobs:
             --userdata "$USERDATA" \
             -o json)
 
+          echo "Instance creation response:"
           echo "$INSTANCE_JSON"
-          INSTANCE_ID=$(echo "$INSTANCE_JSON" | jq -r '.id')
+          
+          # Try multiple possible response formats for instance ID
+          INSTANCE_ID=$(echo "$INSTANCE_JSON" | jq -r '.instance.id // .id // empty')
+          
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "null" ]; then
+            echo "ERROR: Failed to extract instance ID from response"
+            echo "Full response: $INSTANCE_JSON"
+            exit 1
+          fi
+          
+          # Validate instance ID format (should be UUID)
+          if ! echo "$INSTANCE_ID" | grep -iE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' > /dev/null; then
+            echo "ERROR: Instance ID '$INSTANCE_ID' is not a valid UUID format"
+            echo "Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            exit 1
+          fi
+          
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
           echo "Created instance: $INSTANCE_ID"
 
@@ -155,14 +172,62 @@ jobs:
         timeout-minutes: 15
         run: |
           INSTANCE_ID=${{ steps.create_instance.outputs.instance_id }}
+          echo "Waiting for instance ID: $INSTANCE_ID"
+          
+          # Validate instance ID format before using it
+          if ! echo "$INSTANCE_ID" | grep -iE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' > /dev/null; then
+            echo "ERROR: Instance ID '$INSTANCE_ID' is not a valid UUID format"
+            exit 1
+          fi
 
           # Wait until instance is active
-          until [ "$(vultr-cli instance get "$INSTANCE_ID" -o json | jq -r '.status')" = "active" ]; do
-            echo "Waiting for instance to become active..."
+          RETRY_COUNT=0
+          MAX_RETRIES=90  # 15 minutes with 10 second intervals
+          until [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; do
+            echo "Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES: Checking instance status..."
+            
+            INSTANCE_STATUS_JSON=$(vultr-cli instance get "$INSTANCE_ID" -o json 2>&1)
+            INSTANCE_GET_EXIT_CODE=$?
+            
+            if [ $INSTANCE_GET_EXIT_CODE -ne 0 ]; then
+              echo "Error getting instance (exit code $INSTANCE_GET_EXIT_CODE):"
+              echo "$INSTANCE_STATUS_JSON"
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              sleep 10
+              continue
+            fi
+            
+            echo "Instance status response:"
+            echo "$INSTANCE_STATUS_JSON"
+            
+            # Try multiple possible response formats for status
+            STATUS=$(echo "$INSTANCE_STATUS_JSON" | jq -r '.instance.status // .status // empty')
+            echo "Current status: $STATUS"
+            
+            if [ "$STATUS" = "active" ]; then
+              echo "Instance is now active!"
+              break
+            fi
+            
+            echo "Instance not yet active, waiting..."
+            RETRY_COUNT=$((RETRY_COUNT + 1))
             sleep 10
           done
 
-          IP_ADDRESS=$(vultr-cli instance get "$INSTANCE_ID" -o json | jq -r '.main_ip')
+          if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+            echo "ERROR: Instance did not become active within timeout period"
+            exit 1
+          fi
+
+          # Get IP address with the same response format handling
+          IP_ADDRESS=$(echo "$INSTANCE_STATUS_JSON" | jq -r '.instance.main_ip // .main_ip // empty')
+          
+          if [ -z "$IP_ADDRESS" ] || [ "$IP_ADDRESS" = "null" ]; then
+            echo "ERROR: Failed to extract IP address from instance"
+            echo "Full response: $INSTANCE_STATUS_JSON"
+            exit 1
+          fi
+          
           echo "ip_address=$IP_ADDRESS" >> $GITHUB_OUTPUT
           echo "Instance IP: $IP_ADDRESS"
 
