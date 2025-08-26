@@ -28,13 +28,19 @@ jobs:
 
       - name: Install Vultr CLI
         run: |
-          LATEST_VERSION=$(curl -s https://api.github.com/repos/vultr/vultr-cli/releases/latest | jq -r '.tag_name')  # e.g. v3.3.0
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/vultr/vultr-cli/releases/latest | jq -r '.tag_name')  # e.g. v3.6.0
           OS=$(uname -s | tr '[:upper:]' '[:lower:]')   # linux/darwin
           ARCH=$(uname -m)
           case $ARCH in
             x86_64) ARCH=amd64 ;;
             aarch64) ARCH=arm64 ;;
           esac
+          
+          # Fix the OS naming convention for vultr-cli downloads
+          if [ "$OS" = "darwin" ]; then
+            OS="macOs"
+          fi
+          
           URL="https://github.com/vultr/vultr-cli/releases/download/${LATEST_VERSION}/vultr-cli_${LATEST_VERSION}_${OS}_${ARCH}.tar.gz"
           echo "Downloading $URL"
           curl -L "$URL" -o /tmp/vultr-cli.tgz
@@ -74,20 +80,27 @@ jobs:
         id: create_instance
         run: |
           # Discover Ubuntu 22.04 x64 OS ID dynamically
-          OS_ID=$(vultr-cli os list -o json \
-            | jq -r '.[] | select((.name | test("Ubuntu 22\\.04"; "i")) and (.arch == "x64")) | .id' \
+          echo "Fetching OS catalog..."
+          vultr-cli os list -o json > /tmp/os_catalog.json
+          echo "OS catalog response:"
+          cat /tmp/os_catalog.json | jq .
+          
+          OS_ID=$(cat /tmp/os_catalog.json \
+            | jq -r '.os[] | select((.name | test("Ubuntu 22\\.04"; "i")) and (.arch == "x64")) | .id' \
             | head -n1)
 
           if [ -z "$OS_ID" ]; then
-            echo "Could not find Ubuntu 22.04 x64 in OS catalog. Aborting."
+            echo "Could not find Ubuntu 22.04 x64 in OS catalog. Available Ubuntu options:"
+            cat /tmp/os_catalog.json | jq -r '.os[] | select(.name | test("Ubuntu"; "i")) | "\(.id): \(.name) (\(.arch))"'
             exit 1
           fi
           echo "Using OS_ID=$OS_ID (Ubuntu 22.04 x64)"
 
           # Ensure plan exists (adjust if needed)
-          PLAN_ID="voc-c-16c-32gb-300s"
-          if ! vultr-cli plans list -o json | jq -e --arg p "$PLAN_ID" '.[] | select(.id == $p)' > /dev/null; then
-            echo "Plan $PLAN_ID not found. Run 'vultr-cli plans list' to choose a valid plan."
+          PLAN_ID="voc-g-8c-32gb-160s-amd"
+          if ! vultr-cli plans list -o json | jq -e --arg p "$PLAN_ID" '.plans[] | select(.id == $p)' > /dev/null; then
+            echo "Plan $PLAN_ID not found. Available plans:"
+            vultr-cli plans list -o json | jq -r '.plans[] | "\(.id): \(.vcpu_count)vCPU, \(.ram)MB RAM, \(.disk)GB disk - $\(.monthly_cost)/month"' | head -10
             exit 1
           fi
 
