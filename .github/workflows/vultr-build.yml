@@ -20,7 +20,21 @@ jobs:
 
       - name: Install Vultr CLI
         run: |
-          curl -L https://github.com/vultr/vultr-cli/releases/latest/download/vultr-cli_$(uname -s)_$(uname -m).tar.gz | tar -xz
+          # Get the latest release version
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/vultr/vultr-cli/releases/latest | jq -r '.tag_name')
+          
+          # Construct the download URL with correct format
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          
+          # Map architecture names to match release files
+          case $ARCH in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+          esac
+          
+          # Download and extract
+          curl -L "https://github.com/vultr/vultr-cli/releases/download/${LATEST_VERSION}/vultr-cli_${LATEST_VERSION}_${OS}_${ARCH}.tar.gz" | tar -xz
           sudo mv vultr-cli /usr/local/bin/
           vultr-cli version
 
@@ -110,15 +124,13 @@ jobs:
           # Login to registry
           echo "$REGISTRY_PASSWORD" | docker login registry.hearmemanai.xyz -u "$REGISTRY_USERNAME" --password-stdin
           
-          # Build image with tag
-          docker build -t registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }} .
-          
-          # Also tag as latest if desired
-          docker tag registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }} registry.hearmemanai.xyz/${{ github.event.repository.name }}:latest
+          # Build image with tag and build args
+          docker build \
+            --build-arg CIVITAI_TOKEN="$CIVITAI_TOKEN" \
+            -t registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }} .
           
           # Push both tags
           docker push registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }}
-          docker push registry.hearmemanai.xyz/${{ github.event.repository.name }}:latest
           
           echo "Build and push completed successfully!"
           EOF
