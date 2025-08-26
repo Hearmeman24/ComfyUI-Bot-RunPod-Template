@@ -5,7 +5,7 @@ executors:
   docker-dind:
     machine:
       image: ubuntu-2404:current
-      docker_layer_caching: true
+      docker_layer_caching: false
     resource_class: xlarge
     environment:
       DOCKER_BUILDKIT: 1
