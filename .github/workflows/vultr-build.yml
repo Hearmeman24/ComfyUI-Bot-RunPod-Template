@@ -12,10 +12,31 @@ jobs:
     env:
       # Authentication for vultr-cli per official docs
       VULTR_API_KEY: ${{ secrets.VULTR_API_KEY }}
+      # Harbor registry configuration
+      HARBOR_PROJECT_NAME: ${{ secrets.HARBOR_PROJECT_NAME }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          echo "Validating required configuration..."
+          if [ -z "${{ env.HARBOR_PROJECT_NAME }}" ]; then
+            echo "ERROR: HARBOR_PROJECT_NAME secret is not set"
+            echo "Please set this secret to your Harbor project/repository name (e.g., 'comfyui-image-bot')"
+            exit 1
+          fi
+          
+          # Validate lowercase format for Docker compatibility
+          if ! echo "${{ env.HARBOR_PROJECT_NAME }}" | grep -E '^[a-z0-9][a-z0-9._-]*$' > /dev/null; then
+            echo "ERROR: HARBOR_PROJECT_NAME must be lowercase and contain only letters, numbers, dots, underscores, and hyphens"
+            echo "Current value: '${{ env.HARBOR_PROJECT_NAME }}'"
+            exit 1
+          fi
+          
+          echo "✓ HARBOR_PROJECT_NAME: ${{ env.HARBOR_PROJECT_NAME }}"
+          echo "✓ Docker image will be: registry.hearmemanai.xyz/${{ env.HARBOR_PROJECT_NAME }}/${{ env.HARBOR_PROJECT_NAME }}:TAG"
 
       - name: Extract tag
         id: extract_tag
@@ -260,14 +281,14 @@ jobs:
 
           docker build \
             --build-arg CIVITAI_TOKEN="$CIVITAI_TOKEN" \
-            -t registry.hearmemanai.xyz/comfyui-image-bot/comfyui-image-bot:${{ steps.extract_tag.outputs.tag }} .
+            -t registry.hearmemanai.xyz/"$HARBOR_PROJECT_NAME"/"$HARBOR_PROJECT_NAME":${{ steps.extract_tag.outputs.tag }} .
 
-          docker push registry.hearmemanai.xyz/comfyui-image-bot/comfyui-image-bot:${{ steps.extract_tag.outputs.tag }}
+          docker push registry.hearmemanai.xyz/"$HARBOR_PROJECT_NAME"/"$HARBOR_PROJECT_NAME":${{ steps.extract_tag.outputs.tag }}
           EOF
 
           scp -i id_ed25519 -o StrictHostKeyChecking=no build-script.sh root@"$IP":/tmp/
           ssh -i id_ed25519 -o StrictHostKeyChecking=no root@"$IP" \
-            "REGISTRY_USERNAME='${{ secrets.REGISTRY_USERNAME }}' REGISTRY_PASSWORD='${{ secrets.REGISTRY_PASSWORD }}' CIVITAI_TOKEN='${{ secrets.CIVITAI_TOKEN }}' bash /tmp/build-script.sh"
+            "REGISTRY_USERNAME='${{ secrets.REGISTRY_USERNAME }}' REGISTRY_PASSWORD='${{ secrets.REGISTRY_PASSWORD }}' CIVITAI_TOKEN='${{ secrets.CIVITAI_TOKEN }}' HARBOR_PROJECT_NAME='${{ env.HARBOR_PROJECT_NAME }}' bash /tmp/build-script.sh"
 
       - name: Cleanup - Delete Vultr instance and SSH key
         if: always()
