@@ -260,9 +260,9 @@ jobs:
 
           docker build \
             --build-arg CIVITAI_TOKEN="$CIVITAI_TOKEN" \
-            -t registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }} .
+            -t registry.hearmemanai.xyz/comfyui-image-bot/comfyui-image-bot:${{ steps.extract_tag.outputs.tag }} .
 
-          docker push registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }}
+          docker push registry.hearmemanai.xyz/comfyui-image-bot/comfyui-image-bot:${{ steps.extract_tag.outputs.tag }}
           EOF
 
           scp -i id_ed25519 -o StrictHostKeyChecking=no build-script.sh root@"$IP":/tmp/
