@@ -4,14 +4,14 @@ name: Build on Vultr
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # e.g., v1.0.0
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     env:
-      # Correct authentication method per official docs
-      VULTR_API_KEY: ${{ secrets.VULTR_API_KEY }}  # :contentReference[oaicite:4]{index=4}
+      # Authentication for vultr-cli per official docs
+      VULTR_API_KEY: ${{ secrets.VULTR_API_KEY }}
 
     steps:
       - name: Checkout code
@@ -21,15 +21,15 @@ jobs:
         id: extract_tag
         run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Install dependencies
+      - name: Install prerequisites
         run: |
           sudo apt-get update -y
           sudo apt-get install -y jq curl tar openssh-client
 
       - name: Install Vultr CLI
         run: |
-          LATEST_VERSION=$(curl -s https://api.github.com/repos/vultr/vultr-cli/releases/latest | jq -r '.tag_name')  # v3.x.y
-          OS=$(uname -s | tr '[:upper:]' '[:lower:]')      # linux/darwin
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/vultr/vultr-cli/releases/latest | jq -r '.tag_name')  # e.g. v3.3.0
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')   # linux/darwin
           ARCH=$(uname -m)
           case $ARCH in
             x86_64) ARCH=amd64 ;;
@@ -39,29 +39,26 @@ jobs:
           echo "Downloading $URL"
           curl -L "$URL" -o /tmp/vultr-cli.tgz
           tar -xzf /tmp/vultr-cli.tgz -C /tmp
-          # Find the extracted binary regardless of name
           BIN=$(find /tmp -maxdepth 1 -type f -name 'vultr-cli*' | head -n1)
           sudo mv "$BIN" /usr/local/bin/vultr-cli
           sudo chmod +x /usr/local/bin/vultr-cli
           vultr-cli version
 
-      - name: Generate ephemeral SSH keypair for this build
+      - name: Generate ephemeral SSH keypair
         id: ssh_key
         run: |
           ssh-keygen -t ed25519 -N "" -f id_ed25519
-          echo "private_key<<EOF" >> $GITHUB_OUTPUT
-          sed 's/.*/&/' id_ed25519 >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "public_key=$(sed 's/.*/&/' id_ed25519.pub)" >> $GITHUB_OUTPUT
+          chmod 600 id_ed25519
+          echo "ssh_pub=$(cat id_ed25519.pub)" >> $GITHUB_OUTPUT
 
       - name: Register SSH public key in Vultr
         id: add_ssh
         run: |
           KEY_NAME="gha-${{ steps.extract_tag.outputs.tag }}-$(date +%s)"
-          KEY_ID=$(vultr-cli ssh-key create --name "$KEY_NAME" --key "${{ steps.ssh_key.outputs.public_key }}" -o json | jq -r '.id')
+          KEY_ID=$(vultr-cli ssh-key create --name "$KEY_NAME" --key "${{ steps.ssh_key.outputs.ssh_pub }}" -o json | jq -r '.id')
           echo "ssh_key_id=$KEY_ID" >> $GITHUB_OUTPUT
 
-      - name: Create cloud-init user-data (startup actions)
+      - name: Create cloud-init user-data
         run: |
           cat > startup-userdata.sh << 'EOF'
           #!/bin/bash
@@ -73,14 +70,33 @@ jobs:
           touch /tmp/setup-complete
           EOF
 
-      - name: Create Vultr instance
+      - name: Create Vultr instance (Ubuntu 22.04, dynamic OS lookup)
         id: create_instance
         run: |
+          # Discover Ubuntu 22.04 x64 OS ID dynamically
+          OS_ID=$(vultr-cli os list -o json \
+            | jq -r '.[] | select((.name | test("Ubuntu 22\\.04"; "i")) and (.arch == "x64")) | .id' \
+            | head -n1)
+
+          if [ -z "$OS_ID" ]; then
+            echo "Could not find Ubuntu 22.04 x64 in OS catalog. Aborting."
+            exit 1
+          fi
+          echo "Using OS_ID=$OS_ID (Ubuntu 22.04 x64)"
+
+          # Ensure plan exists (adjust if needed)
+          PLAN_ID="voc-c-16c-32gb-300s"
+          if ! vultr-cli plans list -o json | jq -e --arg p "$PLAN_ID" '.[] | select(.id == $p)' > /dev/null; then
+            echo "Plan $PLAN_ID not found. Run 'vultr-cli plans list' to choose a valid plan."
+            exit 1
+          fi
+
           USERDATA=$(< ./startup-userdata.sh)
+
           INSTANCE_JSON=$(vultr-cli instance create \
             --region fra \
-            --plan voc-c-16c-32gb-300s \
-            --os 387 \
+            --plan "$PLAN_ID" \
+            --os "$OS_ID" \
             --ssh-keys "${{ steps.add_ssh.outputs.ssh_key_id }}" \
             --label "build-${{ steps.extract_tag.outputs.tag }}" \
             --userdata "$USERDATA" \
@@ -97,20 +113,17 @@ jobs:
         run: |
           INSTANCE_ID=${{ steps.create_instance.outputs.instance_id }}
 
-          # wait until status=active
+          # Wait until instance is active
           until [ "$(vultr-cli instance get "$INSTANCE_ID" -o json | jq -r '.status')" = "active" ]; do
             echo "Waiting for instance to become active..."
             sleep 10
           done
+
           IP_ADDRESS=$(vultr-cli instance get "$INSTANCE_ID" -o json | jq -r '.main_ip')
           echo "ip_address=$IP_ADDRESS" >> $GITHUB_OUTPUT
           echo "Instance IP: $IP_ADDRESS"
 
-          # prep SSH
-          echo "${{ steps.ssh_key.outputs.private_key }}" > id_ed25519
-          chmod 600 id_ed25519
-
-          # wait for cloud-init marker
+          # Wait for cloud-init completion marker
           for i in $(seq 1 60); do
             if ssh -i id_ed25519 -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@"$IP_ADDRESS" "test -f /tmp/setup-complete" 2>/dev/null; then
               echo "Startup script completed!"
@@ -119,14 +132,13 @@ jobs:
             echo "[$i/60] setup not complete yet..."
             sleep 10
           done
+
           echo "Setup did not complete in time" >&2
           exit 1
 
-      - name: Build and push Docker image on the instance
+      - name: Build and push Docker image on the instance (tag only)
         run: |
           IP=${{ steps.wait_instance.outputs.ip_address }}
-          echo "${{ steps.ssh_key.outputs.private_key }}" > id_ed25519
-          chmod 600 id_ed25519
 
           cat > build-script.sh << 'EOF'
           #!/usr/bin/env bash
@@ -142,11 +154,7 @@ jobs:
             --build-arg CIVITAI_TOKEN="$CIVITAI_TOKEN" \
             -t registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }} .
 
-          docker tag registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }} \
-                     registry.hearmemanai.xyz/${{ github.event.repository.name }}:latest
-
           docker push registry.hearmemanai.xyz/${{ github.event.repository.name }}:${{ steps.extract_tag.outputs.tag }}
-          docker push registry.hearmemanai.xyz/${{ github.event.repository.name }}:latest
           EOF
 
           scp -i id_ed25519 -o StrictHostKeyChecking=no build-script.sh root@"$IP":/tmp/
