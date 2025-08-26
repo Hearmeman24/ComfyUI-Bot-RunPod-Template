@@ -61,7 +61,22 @@ jobs:
         id: add_ssh
         run: |
           KEY_NAME="gha-${{ steps.extract_tag.outputs.tag }}-$(date +%s)"
-          KEY_ID=$(vultr-cli ssh-key create --name "$KEY_NAME" --key "${{ steps.ssh_key.outputs.ssh_pub }}" -o json | jq -r '.id')
+          echo "Creating SSH key with name: $KEY_NAME"
+          
+          SSH_KEY_JSON=$(vultr-cli ssh-key create --name "$KEY_NAME" --key "${{ steps.ssh_key.outputs.ssh_pub }}" -o json)
+          echo "SSH key creation response:"
+          echo "$SSH_KEY_JSON"
+          
+          # Try multiple possible response formats for SSH key ID
+          KEY_ID=$(echo "$SSH_KEY_JSON" | jq -r '.ssh_key.id // .id // .ssh_keys[0].id // empty')
+          
+          if [ -z "$KEY_ID" ] || [ "$KEY_ID" = "null" ]; then
+            echo "ERROR: Failed to create SSH key or extract key ID"
+            echo "Full response: $SSH_KEY_JSON"
+            exit 1
+          fi
+          
+          echo "Created SSH key with ID: $KEY_ID"
           echo "ssh_key_id=$KEY_ID" >> $GITHUB_OUTPUT
 
       - name: Create cloud-init user-data
@@ -105,12 +120,27 @@ jobs:
           fi
 
           USERDATA=$(< ./startup-userdata.sh)
+          SSH_KEY_ID="${{ steps.add_ssh.outputs.ssh_key_id }}"
+          
+          echo "Instance creation parameters:"
+          echo "  Region: fra"
+          echo "  Plan: $PLAN_ID"
+          echo "  OS: $OS_ID"
+          echo "  SSH Key ID: $SSH_KEY_ID"
+          echo "  Label: build-${{ steps.extract_tag.outputs.tag }}"
+          
+          # Validate SSH key ID format (should be UUID, case-insensitive)
+          if ! echo "$SSH_KEY_ID" | grep -iE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' > /dev/null; then
+            echo "ERROR: SSH key ID '$SSH_KEY_ID' is not a valid UUID format"
+            echo "Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            exit 1
+          fi
 
           INSTANCE_JSON=$(vultr-cli instance create \
             --region fra \
             --plan "$PLAN_ID" \
             --os "$OS_ID" \
-            --ssh-keys "${{ steps.add_ssh.outputs.ssh_key_id }}" \
+            --ssh-keys "$SSH_KEY_ID" \
             --label "build-${{ steps.extract_tag.outputs.tag }}" \
             --userdata "$USERDATA" \
             -o json)
