@@ -1,4 +1,17 @@
 a111:
+    base_path: /runpod-volume/ComfyUI/
+    ipadapter: models/ipadapter
+    clip_vision: models/clip_vision
+    controlnet: models/controlnet
+    checkpoints: models/checkpoints
+    loras: models/loras
+    upscale_models: models/upscale_models
+    vae: models/vae
+    ultralytics: models/ultralytics
+    diffusion_models: models/diffusion_models
+    text_encoders: models/text_encoders
+
+a111_root:
     base_path: /
     ipadapter: models/ipadapter
     clip_vision: models/clip_vision
