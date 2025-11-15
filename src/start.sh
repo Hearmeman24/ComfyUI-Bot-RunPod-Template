@@ -88,11 +88,30 @@ if [ -f "$FLAG_FILE" ] || [ "$new_config" = "true" ]; then
   echo "▶️  Starting ComfyUI"
   # group both the main and fallback commands so they share the same log
   mkdir -p "$NETWORK_VOLUME/${RUNPOD_POD_ID}"
-  python3 "$NETWORK_VOLUME"/ComfyUI/main.py --listen --extra-model-paths-config '/ComfyUI-Bot-RunPod-Template/extra_model_paths.yaml' 2>&1 | tee "$NETWORK_VOLUME"/comfyui_"$RUNPOD_POD_ID"_nohup.log &
+  cd "$NETWORK_VOLUME/ComfyUI" || { echo "Failed to cd to ComfyUI directory"; exit 1; }
+  nohup bash -c "python3 main.py --listen --extra-model-paths-config '/ComfyUI-Bot-RunPod-Template/extra_model_paths.yaml' 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
   COMFY_PID=$!
+
+  # Wait for ComfyUI to start with timeout and process check
+  TIMEOUT=300  # 5 minutes
+  ELAPSED=0
   until curl --silent --fail "$URL" --output /dev/null; do
-      echo "🔄  Still waiting…"
+      # Check if ComfyUI process is still running
+      if ! kill -0 "$COMFY_PID" 2>/dev/null; then
+          echo "❌ ComfyUI process died! Check logs: $NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log"
+          exit 1
+      fi
+      
+      if [ $ELAPSED -ge $TIMEOUT ]; then
+          echo "❌ Timeout: ComfyUI failed to start within $TIMEOUT seconds"
+          echo "Last 50 lines of log:"
+          tail -50 "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" || true
+          exit 1
+      fi
+      
+      echo "🔄  Still waiting… (${ELAPSED}s/${TIMEOUT}s)"
       sleep 2
+      ELAPSED=$((ELAPSED + 2))
   done
 
     wait $WGET_PID
@@ -287,12 +306,30 @@ echo "All models downloaded successfully!"
 echo "Starting ComfyUI"
 touch "$FLAG_FILE"
 mkdir -p "$NETWORK_VOLUME/${RUNPOD_POD_ID}"
-nohup bash -c "python3 \"$NETWORK_VOLUME\"/ComfyUI/main.py --listen 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
+cd "$NETWORK_VOLUME/ComfyUI" || { echo "Failed to cd to ComfyUI directory"; exit 1; }
+nohup bash -c "python3 main.py --listen 2>&1 | tee \"$NETWORK_VOLUME\"/comfyui_\"$RUNPOD_POD_ID\"_nohup.log" &
 COMFY_PID=$!
 
+# Wait for ComfyUI to start with timeout and process check
+TIMEOUT=300  # 5 minutes
+ELAPSED=0
 until curl --silent --fail "$URL" --output /dev/null; do
-    echo "🔄  Still waiting…"
+    # Check if ComfyUI process is still running
+    if ! kill -0 "$COMFY_PID" 2>/dev/null; then
+        echo "❌ ComfyUI process died! Check logs: $NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log"
+        exit 1
+    fi
+    
+    if [ $ELAPSED -ge $TIMEOUT ]; then
+        echo "❌ Timeout: ComfyUI failed to start within $TIMEOUT seconds"
+        echo "Last 50 lines of log:"
+        tail -50 "$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" || true
+        exit 1
+    fi
+    
+    echo "🔄  Still waiting… (${ELAPSED}s/${TIMEOUT}s)"
     sleep 2
+    ELAPSED=$((ELAPSED + 2))
 done
 
 echo "ComfyUI is UP Starting worker"
